@@ -11,14 +11,14 @@
         "Other"
     ],
     "activationEvents": [
-        "onCommand:extension.sayHello"
+        "onCommand:extension.loadReview"
     ],
     "main": "./out/extension",
     "contributes": {
         "commands": [
             {
-                "command": "extension.sayHello",
-                "title": "Hello World"
+                "command": "extension.loadReview",
+                "title": "Load Review"
             }
         ]
     },
@@ -29,7 +29,11 @@
         "postinstall": "node ./node_modules/vscode/bin/install",
         "test": "npm run compile && node ./node_modules/vscode/bin/test"
     },
+    "dependencies": {
+        "requests": "^0.2.2"
+    },
     "devDependencies": {
+        "@types/request": "^2.47.1",
         "typescript": "^2.6.1",
         "vscode": "^1.1.21",
         "tslint": "^5.8.0",
