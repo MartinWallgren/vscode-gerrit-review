@@ -2,6 +2,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import * as git from './git';
 import * as gerrit from './gerrit';
 import * as review from './review';
 
@@ -21,7 +22,13 @@ export function activate(context: vscode.ExtensionContext) {
         if (!editor) {
             return; // No open text editor
         }
-        gerrit.getChange(157631).then(review.onChangeLoaded);
+        git.getHEAD()
+            .then(review.getChange)
+            //.then(gerrit.getChange)
+            .then(review.onChangeLoaded)
+            .catch(reason => {
+                console.warn('Failed to load review ' + reason);
+            });
     });
     context.subscriptions.push(disposable);
 }

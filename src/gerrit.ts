@@ -2,7 +2,8 @@
 
 import * as request from 'request';
 
-const GERRIT = 'https://gerrit-review.googlesource.com';
+//const GERRIT = 'https://gerrit-review.googlesource.com';
+const GERRIT = 'https://android-review.googlesource.com';
 
 export function getReview(change: number): Promise<any> {
     return new Promise<any>((resolve, reject) => {

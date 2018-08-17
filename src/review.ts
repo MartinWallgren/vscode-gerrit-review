@@ -7,44 +7,32 @@ import * as vscode from 'vscode';
 const HIGHLIGHT = vscode.window.createTextEditorDecorationType({ backgroundColor: 'rgba(200,200,200,.35)' });
 
 var currentReview: any | undefined;
-var patchSet: number | undefined; // Locally checked out patchset of the current change.
+var currentChange: any | undefined; // {change: nbr, patchSet: ps}
 
 vscode.window.onDidChangeVisibleTextEditors(onVisibleEditorsChanged);
 
 export function onChangeLoaded(change: any) {
     currentReview = undefined;
-    patchSet = undefined;
-    console.log('onChangeLoaded: ' + change._number);
-    git.getHEAD().then(head => {
-        console.log('HEAD: ' + head);
-        if (!head) {
-            return;
-        }
-        patchSet = getPatchset(head, change);
-        if (!patchSet) {
-            // None of the patchsets of the change are currently checked out.
-            return;
-        }
-        gerrit.getReview(change._number).then(onReviewLoaded);
-    });
+    currentChange = change;
+    gerrit.getReview(change.change).then(onReviewLoaded);
 }
 
 function onReviewLoaded(review: any) {
     currentReview = review;
-    if (!patchSet) {
+    if (!currentChange) {
         return;
     }
     for (let editor of vscode.window.visibleTextEditors) {
-        highlightReview(patchSet, review, editor);
+        highlightReview(currentChange.patchSet, review, editor);
     }
 }
 
 function onVisibleEditorsChanged(editors: vscode.TextEditor[]) {
-    if (!currentReview || !patchSet) {
+    if (!currentReview || !currentChange) {
         return;
     }
     for (let editor of vscode.window.visibleTextEditors) {
-        highlightReview(patchSet, currentReview, editor);
+        highlightReview(currentChange.patchSet, currentReview, editor);
     }
 }
 
@@ -93,4 +81,35 @@ function getRange(commentInfo: any, editor: vscode.TextEditor): vscode.Range {
     }
     // File comment
     return new vscode.Range(commentInfo.line - 1, 0, commentInfo.line - 1, 0);
+}
+
+export function getChange(commitId: string): Promise<any> {
+    return git.ls_remote()
+        .then(remoteRefs => {
+            return new Promise<any>((resolve, reject) => {
+                for (let ref of remoteRefs.split('\n')) {
+                    if (ref.startsWith(commitId)) {
+                        let change = getChangeNbrByRef(ref);
+                        if (change) {
+                            resolve(change);
+                            return;
+                        }
+                    }
+                }
+                reject(Error(`No change found for commit ${commitId}`));
+            });
+        });
+}
+
+function getChangeNbrByRef(ref: string): any | undefined {
+    //ref on the form 46c82b4cd241a447834ed2f5a6be16777b7a990b	refs/changes/80/116780/3
+    let index = ref.indexOf('refs/changes/');
+    if (!index) {
+        // Not a change ref
+        return;
+    }
+    let change = Number(ref.substring(index).split('/')[3]);
+    let patchSet = Number(ref.substring(index).split('/')[4]);
+
+    return { change: change, patchSet: patchSet };
 }
