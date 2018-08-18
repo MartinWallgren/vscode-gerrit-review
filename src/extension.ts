@@ -3,7 +3,6 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import * as git from './git';
-import * as gerrit from './gerrit';
 import * as review from './review';
 
 // this method is called when your extension is activated
@@ -24,7 +23,6 @@ export function activate(context: vscode.ExtensionContext) {
         }
         git.getHEAD()
             .then(review.getChange)
-            //.then(gerrit.getChange)
             .then(review.onChangeLoaded)
             .catch(reason => {
                 console.warn('Failed to load review ' + reason);
