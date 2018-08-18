@@ -21,7 +21,7 @@ export function onChangeLoaded(change: any) {
         });
 }
 
-function onReviewLoaded(review: any) {
+function onReviewLoaded(review: { [key: string]: gerrit.CommentInfo[] }) {
     currentReview = review;
     if (!currentChange) {
         return;
@@ -40,13 +40,11 @@ function onVisibleEditorsChanged(editors: vscode.TextEditor[]) {
     }
 }
 
-function getPatchset(sha1: string, change: any): number | undefined {
-    if (change.revisions[sha1]) {
-        return change.revisions[sha1]._number;
-    }
-}
 
-function highlightReview(patchSet: number, review: any, editor: vscode.TextEditor) {
+function highlightReview(patchSet: number,
+    review: { [key: string]: gerrit.CommentInfo[] },
+    editor: vscode.TextEditor) {
+
     let path = editor.document.fileName;
     if (!path) {
         // Editor not connected to a file (new untitled document etc).
@@ -61,14 +59,18 @@ function highlightReview(patchSet: number, review: any, editor: vscode.TextEdito
     for (let comment of review[relativePath]) {
         if (comment.patch_set === patchSet) {
             let range = getRange(comment, editor);
-            let msg = `${comment.author.name}: ${comment.message}`;
+            let author = undefined;
+            if (comment.author) {
+                author = comment.author.name;
+            }
+            let msg = `${author}: ${comment.message}`;
             highlights.push({ hoverMessage: msg, range: range });
         }
     }
     editor.setDecorations(HIGHLIGHT, highlights);
 }
 
-function getRange(commentInfo: any, editor: vscode.TextEditor): vscode.Range {
+function getRange(commentInfo: gerrit.CommentInfo, editor: vscode.TextEditor): vscode.Range {
     if (commentInfo.range) {
         // Selection comment
         return new vscode.Range(
@@ -83,8 +85,8 @@ function getRange(commentInfo: any, editor: vscode.TextEditor): vscode.Range {
         let line = commentInfo.line - 1; // Gerrit lines are 1-based.
         return editor.document.lineAt(line).range;
     }
-    // File comment
-    return new vscode.Range(commentInfo.line - 1, 0, commentInfo.line - 1, 0);
+    // File comment, place them on the first line for now.
+    return editor.document.lineAt(0).range;
 }
 
 export function getChange(commitId: string): Promise<any> {
