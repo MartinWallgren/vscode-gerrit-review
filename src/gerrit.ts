@@ -55,7 +55,7 @@ function getGerritURI(): string | null | undefined {
  * @returns map of file paths to list of comments.
  * @param changeNbr the number to identify the change.
  */
-export function getReview(changeNbr: number): Promise<{ [key: string]: CommentInfo[] }> {
+export function getComments(changeNbr: number): Promise<{ [key: string]: CommentInfo[] }> {
     return new Promise<{ [key: string]: CommentInfo[] }>((resolve, reject) => {
         let base = getGerritURI();
         if (!base) {

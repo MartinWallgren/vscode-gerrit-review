@@ -6,58 +6,74 @@ import * as vscode from 'vscode';
 
 const HIGHLIGHT = vscode.window.createTextEditorDecorationType({ backgroundColor: 'rgba(200,200,200,.35)' });
 
-var currentReview: any | undefined;
-var currentChange: any | undefined; // {change: nbr, patchSet: ps}
+/**
+ * The review for the current HEAD.
+ * Will be undefined if no review has been loaded or
+ * if no review exists for the current HEAD.
+ */
+var currentReview: Review | undefined;
 
 vscode.window.onDidChangeVisibleTextEditors(onVisibleEditorsChanged);
 
-export function onChangeLoaded(change: any) {
-    currentReview = undefined;
-    currentChange = change;
-    gerrit.getReview(change.change)
-        .then(onReviewLoaded)
+/**
+ * A Review represents a patchset of a change with comments.
+ */
+class Review {
+    constructor(
+        public commitId: string,
+
+        /**
+         * Note, this is all comments for the Change, not just for this patch set.
+         */
+        public comments: { [key: string]: gerrit.CommentInfo[] },
+        public changeNbr: number,
+        public patchSet: number
+    ) { }
+}
+
+export function onReviewLoaded(review: Review) {
+    currentReview = review;
+    gerrit.getComments(review.changeNbr)
+        .then(onCommentsLoaded)
         .catch((err) => {
             vscode.window.showErrorMessage(`Unable to load review: ${err.message}`);
         });
 }
 
-function onReviewLoaded(review: { [key: string]: gerrit.CommentInfo[] }) {
-    currentReview = review;
-    if (!currentChange) {
+function onCommentsLoaded(comments: { [key: string]: gerrit.CommentInfo[] }) {
+    if (!currentReview) {
         return;
     }
+    currentReview.comments = comments;
     for (let editor of vscode.window.visibleTextEditors) {
-        highlightReview(currentChange.patchSet, review, editor);
+        highlightReview(currentReview, editor);
     }
 }
 
 function onVisibleEditorsChanged(editors: vscode.TextEditor[]) {
-    if (!currentReview || !currentChange) {
+    if (!currentReview) {
         return;
     }
     for (let editor of vscode.window.visibleTextEditors) {
-        highlightReview(currentChange.patchSet, currentReview, editor);
+        highlightReview(currentReview, editor);
     }
 }
 
 
-function highlightReview(patchSet: number,
-    review: { [key: string]: gerrit.CommentInfo[] },
-    editor: vscode.TextEditor) {
-
+function highlightReview(review: Review, editor: vscode.TextEditor) {
     let path = editor.document.fileName;
     if (!path) {
         // Editor not connected to a file (new untitled document etc).
         return;
     }
     let relativePath = vscode.workspace.asRelativePath(path);
-    if (!review[relativePath]) {
+    if (!review.comments[relativePath]) {
         // No review comments for this file.
         return;
     }
     let highlights: vscode.DecorationOptions[] = [];
-    for (let comment of review[relativePath]) {
-        if (comment.patch_set === patchSet) {
+    for (let comment of review.comments[relativePath]) {
+        if (comment.patch_set === review.patchSet) {
             let range = getRange(comment, editor);
             let author = undefined;
             if (comment.author) {
@@ -89,15 +105,21 @@ function getRange(commentInfo: gerrit.CommentInfo, editor: vscode.TextEditor): v
     return editor.document.lineAt(0).range;
 }
 
-export function getChange(commitId: string): Promise<any> {
+/**
+ * Get the review for the given commitId.
+ *
+ * @returns a Review for the commit if one exists
+ * @param commitId a commit sha1 to lookup a review for
+ */
+export function getReview(commitId: string): Promise<Review> {
     return git.ls_remote()
         .then(remoteRefs => {
-            return new Promise<any>((resolve, reject) => {
+            return new Promise<Review>((resolve, reject) => {
                 for (let ref of remoteRefs.split('\n')) {
                     if (ref.startsWith(commitId)) {
-                        let change = getChangeNbrByRef(ref);
-                        if (change) {
-                            resolve(change);
+                        let review = getReviewByRef(commitId, ref);
+                        if (review) {
+                            resolve(review);
                             return;
                         }
                     }
@@ -107,15 +129,15 @@ export function getChange(commitId: string): Promise<any> {
         });
 }
 
-function getChangeNbrByRef(ref: string): any | undefined {
+function getReviewByRef(commitId: string, ref: string): Review | undefined {
     //ref on the form 46c82b4cd241a447834ed2f5a6be16777b7a990b	refs/changes/80/116780/3
     let index = ref.indexOf('refs/changes/');
     if (!index) {
         // Not a change ref
         return;
     }
-    let change = Number(ref.substring(index).split('/')[3]);
+    let changeNbr = Number(ref.substring(index).split('/')[3]);
     let patchSet = Number(ref.substring(index).split('/')[4]);
 
-    return { change: change, patchSet: patchSet };
+    return new Review(commitId, {}, changeNbr, patchSet);
 }

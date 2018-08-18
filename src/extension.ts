@@ -22,8 +22,8 @@ export function activate(context: vscode.ExtensionContext) {
             return; // No open text editor
         }
         git.getHEAD()
-            .then(review.getChange)
-            .then(review.onChangeLoaded)
+            .then(review.getReview)
+            .then(review.onReviewLoaded)
             .catch(reason => {
                 console.warn('Failed to load review ' + reason);
             });
