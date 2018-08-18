@@ -14,7 +14,11 @@ vscode.window.onDidChangeVisibleTextEditors(onVisibleEditorsChanged);
 export function onChangeLoaded(change: any) {
     currentReview = undefined;
     currentChange = change;
-    gerrit.getReview(change.change).then(onReviewLoaded);
+    gerrit.getReview(change.change)
+        .then(onReviewLoaded)
+        .catch((err) => {
+            vscode.window.showErrorMessage(`Unable to load review: ${err.message}`);
+        });
 }
 
 function onReviewLoaded(review: any) {

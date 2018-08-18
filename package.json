@@ -15,10 +15,21 @@
     ],
     "main": "./out/extension",
     "contributes": {
+        "configuration": {
+            "type": "object",
+            "title": "Gerrit configuration",
+            "properties": {
+                "gerrit.host": {
+                    "type": ["string", "null"],
+                    "default": null,
+                    "description": "URI for the Gerrit service."
+                }
+            }
+        },
         "commands": [
             {
                 "command": "extension.loadReview",
-                "title": "Load Review"
+                "title": "Gerrit: Load Review"
             }
         ]
     },
