@@ -30,6 +30,10 @@
             {
                 "command": "extension.loadReview",
                 "title": "Gerrit: Load Review"
+            },
+            {
+                "command": "extension.goToComment",
+                "title": "Gerrit: Go to comment"
             }
         ]
     },

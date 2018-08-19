@@ -19,6 +19,11 @@ export function activate(context: vscode.ExtensionContext) {
         review.loadReview();
     });
     context.subscriptions.push(disposable);
+
+    disposable = vscode.commands.registerCommand('extension.goToComment', () => {
+        review.goToComment();
+    });
+    context.subscriptions.push(disposable);
 }
 
 // this method is called when your extension is deactivated

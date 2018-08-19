@@ -17,6 +17,32 @@ var currentReview: Review | undefined;
 
 vscode.window.onDidChangeVisibleTextEditors(onVisibleEditorsChanged);
 
+export function goToComment() {
+    if (!currentReview) {
+        return;
+    }
+    let review = currentReview;
+    let comments: string[] = [];
+    for (let file of Object.getOwnPropertyNames(review.comments)) {
+        let fileComments = review.comments[file]
+            .filter(ci => { return ci.patch_set === review.patchSet; });
+        if (fileComments.length > 0) {
+            comments.push(file);
+        }
+    }
+
+    vscode.window.showQuickPick(comments,
+        {
+            placeHolder: "Select file with comments to open."
+        })
+        .then(file => {
+            if (file) {
+                vscode.workspace.openTextDocument(path.join(review.gitRoot, file))
+                    .then(doc => vscode.window.showTextDocument(doc));
+            }
+        });
+}
+
 /**
  * A Review represents a patchset of a change with comments.
  */
