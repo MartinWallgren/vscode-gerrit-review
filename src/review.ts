@@ -3,6 +3,7 @@
 import * as gerrit from './gerrit';
 import * as git from './git';
 import * as vscode from 'vscode';
+import { isString } from 'util';
 
 const HIGHLIGHT = vscode.window.createTextEditorDecorationType({ backgroundColor: 'rgba(200,200,200,.35)' });
 
@@ -32,22 +33,95 @@ class Review {
     ) { }
 }
 
-export function loadReview(gitRoot: string) {
-    git.getHEAD(gitRoot)
-        .then(head => { return getReview(head[0], head[1]); })
-        .then(onReviewLoaded)
-        .catch(reason => {
-            vscode.window.showErrorMessage(`Unable to load review: ${reason}`);
-        });
+
+export function loadReview() {
+    getGitRoot()
+        .then(onGitRootSelected)
+        .catch(vscode.window.showErrorMessage);
 }
 
-export function onReviewLoaded(review: Review) {
+function getGitRoot(): Promise<string> {
+    let paths: string[] = [];
+    if (vscode.workspace.workspaceFolders) {
+        paths = vscode.workspace.workspaceFolders.filter(folder => {
+            return folder.uri.scheme === 'file';
+        }).map(folder => {
+            return folder.uri.fsPath;
+        });
+    }
+    return new Promise<string>((resolve, reject) => {
+        Promise.all(paths.map(git.getGitRoot))
+            .then(gitRoots => {
+                if (gitRoots.length === 0) {
+                    reject('Unable to load code review. No git repo found.');
+                }
+                gitRoots = gitRoots.filter(isString); // Non git directories will be undefined in the result.
+                if (gitRoots.length === 1) {
+                    resolve(gitRoots[0]);
+                    return;
+                }
+                vscode.window.showQuickPick(gitRoots,
+                    {
+                        placeHolder: "Select git repo with the code review."
+                    })
+                    .then(gitRoot => {
+                        if (gitRoot) {
+                            resolve(gitRoot);
+                        }
+                        reject('Unable to load code review. No git repo found.');
+                    });
+            }).catch(reject);
+    });
+}
+
+function onGitRootSelected(gitRoot: string) {
+    getRemote(gitRoot)
+        .then(remote => {
+            onGitRemoteSelected(gitRoot, remote);
+        })
+        .catch(vscode.window.showErrorMessage);
+}
+
+function getRemote(gitRoot: string): Promise<git.GitRemote> {
+    return new Promise((resolve, reject) => {
+        git.getRemotes(gitRoot).then(remotes => {
+            if (!remotes) {
+                reject(`No remote found in ${gitRoot}`);
+                return;
+            }
+            if (remotes.length === 1) {
+                resolve(remotes[0]);
+                return;
+            }
+            vscode.window.showQuickPick(remotes.map(r => { return `${r.name}`; }),
+                {
+                    placeHolder: "Select git remote with the code review."
+                })
+                .then(remoteName => {
+                    if (!remoteName) {
+                        return;
+                    }
+                    resolve(remotes.filter(r => {
+                        return r.name === remoteName;
+                    })[0]);
+                });
+        });
+    });
+}
+
+
+function onGitRemoteSelected(gitRoot: string, remote: git.GitRemote) {
+    git.getHEAD(gitRoot)
+        .then(head => { return getReview(gitRoot, remote, head); })
+        .then(onReviewLoaded)
+        .catch(vscode.window.showErrorMessage);
+}
+
+function onReviewLoaded(review: Review) {
     currentReview = review;
     gerrit.getComments(review.changeNbr)
         .then(onCommentsLoaded)
-        .catch((err) => {
-            vscode.window.showErrorMessage(`Unable to load review: ${err.message}`);
-        });
+        .catch(vscode.window.showErrorMessage);
 }
 
 function onCommentsLoaded(comments: { [key: string]: gerrit.CommentInfo[] }) {
@@ -123,11 +197,11 @@ function getRange(commentInfo: gerrit.CommentInfo, editor: vscode.TextEditor): v
  * @returns a Review for the commit if one exists
  * @param commitId a commit sha1 to lookup a review for
  */
-export function getReview(gitRoot: string, commitId: string): Promise<Review> {
+function getReview(gitRoot: string, remote: git.GitRemote, commitId: string): Promise<Review> {
     return git.ls_remote(gitRoot, [
         '--refs',                   // Do not show peeled tags or pseudorefs like HEAD in the output.
         '--sort="version:refname"', // Sort on refname to get a sane order for the user.
-        'origin',                   // the remote (TODO: allow remotes other than origin)
+        remote.name,                     // the remote
         '"refs/changes/*/*/*"'])    // filter out refs/changes only
         .then(remoteRefs => {
             return new Promise<Review>((resolve, reject) => {
@@ -156,7 +230,8 @@ export function getReview(gitRoot: string, commitId: string): Promise<Review> {
                     });
                 }
             });
-        });
+        })
+        ;
 }
 
 /**
