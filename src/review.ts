@@ -2,6 +2,7 @@
 
 import * as gerrit from './gerrit';
 import * as git from './git';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { isString } from 'util';
 
@@ -147,12 +148,12 @@ function onVisibleEditorsChanged(editors: vscode.TextEditor[]) {
 
 
 function highlightReview(review: Review, editor: vscode.TextEditor) {
-    let path = editor.document.fileName;
-    if (!path) {
+    let filePath = editor.document.fileName;
+    if (!filePath) {
         // Editor not connected to a file (new untitled document etc).
         return;
     }
-    let relativePath = vscode.workspace.asRelativePath(path, false);
+    let relativePath = path.relative(review.gitRoot, filePath);
     if (!review.comments[relativePath]) {
         // No review comments for this file.
         return;
