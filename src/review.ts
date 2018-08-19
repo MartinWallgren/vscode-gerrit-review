@@ -32,6 +32,15 @@ class Review {
     ) { }
 }
 
+export function loadReview(gitRoot: string) {
+    git.getHEAD(gitRoot)
+        .then(head => { return getReview(head[0], head[1]); })
+        .then(onReviewLoaded)
+        .catch(reason => {
+            vscode.window.showErrorMessage(`Unable to load review: ${reason}`);
+        });
+}
+
 export function onReviewLoaded(review: Review) {
     currentReview = review;
     gerrit.getComments(review.changeNbr)
@@ -49,6 +58,8 @@ function onCommentsLoaded(comments: { [key: string]: gerrit.CommentInfo[] }) {
     for (let editor of vscode.window.visibleTextEditors) {
         highlightReview(currentReview, editor);
     }
+    vscode.window.showInformationMessage(
+        `Comments loaded for change ${currentReview.changeNbr}/${currentReview.patchSet}.`);
 }
 
 function onVisibleEditorsChanged(editors: vscode.TextEditor[]) {
@@ -67,7 +78,7 @@ function highlightReview(review: Review, editor: vscode.TextEditor) {
         // Editor not connected to a file (new untitled document etc).
         return;
     }
-    let relativePath = vscode.workspace.asRelativePath(path);
+    let relativePath = vscode.workspace.asRelativePath(path, false);
     if (!review.comments[relativePath]) {
         // No review comments for this file.
         return;

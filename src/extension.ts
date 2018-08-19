@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import * as git from './git';
 import * as review from './review';
+import { isString } from 'util';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -17,16 +18,34 @@ export function activate(context: vscode.ExtensionContext) {
     // Now provide the implementation of the command with  registerCommand
     // The commandId parameter must match the command field in package.json
     let disposable = vscode.commands.registerCommand('extension.loadReview', () => {
-        if (!vscode.workspace.rootPath) {
-            return;
-        }
-        let gitRoot = vscode.workspace.rootPath;
-        git.getHEAD(gitRoot)
-            .then(commitId => {return review.getReview(gitRoot, commitId)})
-            .then(review.onReviewLoaded)
-            .catch(reason => {
-                vscode.window.showErrorMessage(`Unable to load review: ${reason.message}`);
+        let paths: string[] = [];
+        if (vscode.workspace.workspaceFolders) {
+            paths = vscode.workspace.workspaceFolders.filter(folder => {
+                return folder.uri.scheme === 'file';
+            }).map(folder => {
+                return folder.uri.fsPath;
             });
+        }
+        Promise.all(paths.map(git.getGitRoot))
+            .then(gitRoots => {
+                if (gitRoots.length === 0) {
+                    vscode.window.showErrorMessage('Unable to load code review. No git repo found.');
+                }
+                gitRoots = gitRoots.filter(isString); // Non git directories will be undefined in the result.
+                if (gitRoots.length === 1) {
+                    review.loadReview(gitRoots[0]);
+                    return;
+                }
+                vscode.window.showQuickPick(gitRoots,
+                    {
+                        placeHolder: "Select git repo with the code review."
+                    })
+                    .then(gitRoot => {
+                        if (gitRoot) {
+                            review.loadReview(gitRoot);
+                        }
+                    });
+            }).catch(reason => { vscode.window.showErrorMessage('Unable to load code review. No git repo found.'); });
     });
     context.subscriptions.push(disposable);
 }
