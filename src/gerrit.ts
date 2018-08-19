@@ -41,12 +41,21 @@ export class CommentInfo {
     ) { }
 }
 
-function getGerritURI(): string | null | undefined {
+function getGerritURIFromConfig(): string | null | undefined {
     let uri = workspace.getConfiguration('gerrit-review').get('gerrit.host');
     if (!uri) {
         return undefined;
     }
     return uri.toString();
+}
+
+function getGerritURI(): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+        let uri = getGerritURIFromConfig();
+        if (uri) {
+            resolve(uri);
+        }
+    });
 }
 
 /**
@@ -57,19 +66,16 @@ function getGerritURI(): string | null | undefined {
  */
 export function getComments(changeNbr: number): Promise<{ [key: string]: CommentInfo[] }> {
     return new Promise<{ [key: string]: CommentInfo[] }>((resolve, reject) => {
-        let base = getGerritURI();
-        if (!base) {
-            reject(Error('Gerrit host URI is not configured.'));
-            return;
-        }
-        let uri = `${base}/changes/${changeNbr}/comments`;
-        request.get(uri, function (error, _response, body) {
-            if (error) {
-                reject(Error(`Failed to load review comments for change ${changeNbr}`));
-                return;
-            }
-            resolve(toJSON(body) as { [key: string]: CommentInfo[] });
-        });
+        getGerritURI().then(base => {
+            let uri = `${base}/changes/${changeNbr}/comments`;
+            request.get(uri, function (error, _response, body) {
+                if (error) {
+                    reject(`Failed to load review comments for change ${changeNbr}: ${error}`);
+                    return;
+                }
+                resolve(toJSON(body) as { [key: string]: CommentInfo[] });
+            });
+        }).catch(_reason => { reject('Unable to get Gerrit host URI.'); });
     });
 }
 
