@@ -28,7 +28,7 @@ export function ls_remote(gitRoot: string, args?: ReadonlyArray<string>): Promis
 function command(command: string, rejectError:boolean = true): Promise<string> {
 
     return new Promise<string>((resolve, reject) => {
-        exec(command, { maxBuffer: 1024 * 1024 * 4 }, (error, stdout, _stderr) => {
+        exec(command, { maxBuffer: 1024 * 1024 * 16 }, (error, stdout, _stderr) => {
             if (error) {
                 if (rejectError) {
                     reject(`git command error: ${error}`);
