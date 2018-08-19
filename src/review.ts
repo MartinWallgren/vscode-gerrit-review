@@ -20,6 +20,7 @@ vscode.window.onDidChangeVisibleTextEditors(onVisibleEditorsChanged);
  */
 class Review {
     constructor(
+        public gitRoot: string,
         public commitId: string,
 
         /**
@@ -111,8 +112,8 @@ function getRange(commentInfo: gerrit.CommentInfo, editor: vscode.TextEditor): v
  * @returns a Review for the commit if one exists
  * @param commitId a commit sha1 to lookup a review for
  */
-export function getReview(commitId: string): Promise<Review> {
-    return git.ls_remote([
+export function getReview(gitRoot: string, commitId: string): Promise<Review> {
+    return git.ls_remote(gitRoot, [
         '--refs',                   // Do not show peeled tags or pseudorefs like HEAD in the output.
         '--sort="version:refname"', // Sort on refname to get a sane order for the user.
         'origin',                   // the remote (TODO: allow remotes other than origin)
@@ -130,7 +131,7 @@ export function getReview(commitId: string): Promise<Review> {
                     return ref.substring(ref.indexOf('refs/changes'));
                 });
                 if (refs.length === 1) {
-                    resolve(toReview(commitId, refs[0]));
+                    resolve(toReview(gitRoot, commitId, refs[0]));
                 } else {
                     vscode.window.showQuickPick(refs,
                         {
@@ -139,7 +140,7 @@ export function getReview(commitId: string): Promise<Review> {
                         }
                     ).then(ref => {
                         if (ref) {
-                            resolve(toReview(commitId, ref));
+                            resolve(toReview(gitRoot, commitId, ref));
                         }
                     });
                 }
@@ -156,9 +157,9 @@ export function getReview(commitId: string): Promise<Review> {
  * @param commitId the commitId of the commit in the patchset
  * @param ref reference on the form 'refs/changes/80/116780/3'
  */
-function toReview(commitId: string, ref: string): Review {
+function toReview(gitRoot: string, commitId: string, ref: string): Review {
     let parts = ref.split('/');
     let changeNbr = Number(parts[3]);
     let patchSet = Number(parts[4]);
-    return new Review(commitId, {}, changeNbr, patchSet);
+    return new Review(gitRoot, commitId, {}, changeNbr, patchSet);
 }

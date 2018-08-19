@@ -17,15 +17,15 @@ export function activate(context: vscode.ExtensionContext) {
     // Now provide the implementation of the command with  registerCommand
     // The commandId parameter must match the command field in package.json
     let disposable = vscode.commands.registerCommand('extension.loadReview', () => {
-        let editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            return; // No open text editor
+        if (!vscode.workspace.rootPath) {
+            return;
         }
-        git.getHEAD()
-            .then(review.getReview)
+        let gitRoot = vscode.workspace.rootPath;
+        git.getHEAD(gitRoot)
+            .then(commitId => {return review.getReview(gitRoot, commitId)})
             .then(review.onReviewLoaded)
             .catch(reason => {
-                console.warn('Failed to load review ' + reason);
+                vscode.window.showErrorMessage(`Unable to load review: ${reason.message}`);
             });
     });
     context.subscriptions.push(disposable);
