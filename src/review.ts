@@ -112,32 +112,53 @@ function getRange(commentInfo: gerrit.CommentInfo, editor: vscode.TextEditor): v
  * @param commitId a commit sha1 to lookup a review for
  */
 export function getReview(commitId: string): Promise<Review> {
-    return git.ls_remote()
+    return git.ls_remote([
+        '--refs',                   // Do not show peeled tags or pseudorefs like HEAD in the output.
+        '--sort="version:refname"', // Sort on refname to get a sane order for the user.
+        'origin',                   // the remote (TODO: allow remotes other than origin)
+        '"refs/changes/*/*/*"'])    // filter out refs/changes only
         .then(remoteRefs => {
             return new Promise<Review>((resolve, reject) => {
-                for (let ref of remoteRefs.split('\n')) {
-                    if (ref.startsWith(commitId)) {
-                        let review = getReviewByRef(commitId, ref);
-                        if (review) {
-                            resolve(review);
-                            return;
-                        }
-                    }
+                // ls-remote will return lines on the form:
+                // 46c82b4cd241a447834ed2f5a6be16777b7a990b	refs/changes/80/116780/3
+                let refs = remoteRefs.split('\n').filter(ref => { return ref.startsWith(commitId); });
+                if (refs.length === 0) {
+                    reject(`No change found for commit ${commitId}`);
+                    return;
                 }
-                reject(Error(`No change found for commit ${commitId}`));
+                refs = refs.map(ref => {
+                    return ref.substring(ref.indexOf('refs/changes'));
+                });
+                if (refs.length === 1) {
+                    resolve(toReview(commitId, refs[0]));
+                } else {
+                    vscode.window.showQuickPick(refs,
+                        {
+                            placeHolder: "Pick the change you want to load comments for.",
+                            ignoreFocusOut: true
+                        }
+                    ).then(ref => {
+                        if (ref) {
+                            resolve(toReview(commitId, ref));
+                        }
+                    });
+                }
             });
         });
 }
 
-function getReviewByRef(commitId: string, ref: string): Review | undefined {
-    //ref on the form 46c82b4cd241a447834ed2f5a6be16777b7a990b	refs/changes/80/116780/3
-    let index = ref.indexOf('refs/changes/');
-    if (!index) {
-        // Not a change ref
-        return;
-    }
-    let changeNbr = Number(ref.substring(index).split('/')[3]);
-    let patchSet = Number(ref.substring(index).split('/')[4]);
-
+/**
+ * Create a Review instance
+ *
+ * Note, comments of the Review will not be fetched and thus
+ * remain undefined.
+ *
+ * @param commitId the commitId of the commit in the patchset
+ * @param ref reference on the form 'refs/changes/80/116780/3'
+ */
+function toReview(commitId: string, ref: string): Review {
+    let parts = ref.split('/');
+    let changeNbr = Number(parts[3]);
+    let patchSet = Number(parts[4]);
     return new Review(commitId, {}, changeNbr, patchSet);
 }

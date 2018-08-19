@@ -11,12 +11,13 @@ export function getHEAD(): Promise<string> {
     return command(`git -C ${vscode.workspace.rootPath} rev-parse HEAD`);
 }
 
-export function ls_remote(): Promise<string> {
+export function ls_remote(args?: ReadonlyArray<string>): Promise<string> {
     if (!vscode.workspace.rootPath) {
         console.warn('No directory path in workspace.');
         return new Promise<string>(function (_resolve, reject) { reject(); });
     }
-    return command(`git -C ${vscode.workspace.rootPath} ls-remote`);
+    let cmd = `git -C ${vscode.workspace.rootPath} ls-remote ` + (args? args.join(' ') : '');
+    return command(cmd);
 }
 
 function command(command: string): Promise<string> {
