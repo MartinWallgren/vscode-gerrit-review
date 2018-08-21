@@ -230,7 +230,7 @@ function getReview(gitRoot: string, remote: git.GitRemote, commitId: string): Pr
         '--refs',                   // Do not show peeled tags or pseudorefs like HEAD in the output.
         '--sort="version:refname"', // Sort on refname to get a sane order for the user.
         remote.name,                     // the remote
-        '"refs/changes/*/*/*"'])    // filter out refs/changes only
+        '"refs/changes/*/*/[0-9]*"'])    // filter out refs/changes only
         .then(remoteRefs => {
             return new Promise<Review>((resolve, reject) => {
                 // ls-remote will return lines on the form:
