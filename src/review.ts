@@ -228,7 +228,6 @@ function getRange(commentInfo: gerrit.CommentInfo, editor: vscode.TextEditor): v
 function getReview(gitRoot: string, remote: git.GitRemote, commitId: string): Promise<Review> {
     return git.ls_remote(gitRoot, [
         '--refs',                   // Do not show peeled tags or pseudorefs like HEAD in the output.
-        '--sort="version:refname"', // Sort on refname to get a sane order for the user.
         remote.name,                     // the remote
         '"refs/changes/*/*/[0-9]*"'])    // filter out refs/changes only
         .then(remoteRefs => {
@@ -246,7 +245,7 @@ function getReview(gitRoot: string, remote: git.GitRemote, commitId: string): Pr
                 if (refs.length === 1) {
                     resolve(toReview(gitRoot, commitId, refs[0]));
                 } else {
-                    vscode.window.showQuickPick(refs,
+                    vscode.window.showQuickPick(refs.sort(),
                         {
                             placeHolder: "Pick the change you want to load comments for.",
                             ignoreFocusOut: true
