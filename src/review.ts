@@ -95,7 +95,8 @@ function getGitRoot(): Promise<string> {
                         if (gitRoot) {
                             resolve(gitRoot);
                         }
-                        reject('Unable to load code review. No git repo found.');
+                        // Don't reject here, we don't want an error message
+                        // just because the user cancelled the dialog.
                     });
             }).catch(reject);
     });
