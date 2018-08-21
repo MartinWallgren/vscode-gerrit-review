@@ -20,9 +20,28 @@
             "title": "Gerrit configuration",
             "properties": {
                 "gerrit.host": {
-                    "type": ["string", "null"],
+                    "type": [
+                        "string",
+                        "null"
+                    ],
                     "default": null,
                     "description": "URI for the Gerrit service."
+                },
+                "gerrit.user": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "default": null,
+                    "description": "User if authentication is required."
+                },
+                "gerrit.password": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "default": null,
+                    "description": "HTTP password if authentication is required."
                 }
             }
         },

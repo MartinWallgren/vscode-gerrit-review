@@ -67,8 +67,16 @@ function getGerritURI(): Promise<string> {
 export function getComments(changeNbr: number): Promise<{ [key: string]: CommentInfo[] }> {
     return new Promise<{ [key: string]: CommentInfo[] }>((resolve, reject) => {
         getGerritURI().then(base => {
-            let uri = `${base}/changes/${changeNbr}/comments`;
-            request.get(uri, function (error, _response, body) {
+            let user = workspace.getConfiguration('gerrit-review').get('gerrit.user');
+            let password = workspace.getConfiguration('gerrit-review').get('gerrit.password');
+            let authPath = '';
+            let auth = undefined;
+            if (user && password) {
+                authPath = 'a/';
+                auth = { auth: { user: user, pass: password } } as request.CoreOptions;
+            }
+            let uri = `${base}/${authPath}changes/${changeNbr}/comments`;
+            request.get(uri, auth, function (error, _response, body) {
                 if (error) {
                     reject(`Failed to load review comments for change ${changeNbr}: ${error}`);
                     return;
